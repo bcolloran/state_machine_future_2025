@@ -1,12 +1,11 @@
 //! Test that the `AfterBlah` types implement `From<Successor>` for all
 //! `Successor` typestates that come after the `Blah` typestate.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::{Async, Poll};
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Poll};
 
 #[derive(StateMachineFuture)]
 pub enum Machine {
@@ -27,13 +26,17 @@ pub enum Machine {
 }
 
 impl PollMachine for Machine {
-    fn poll_start<'a>(_: &'a mut RentToOwn<'a, Start>) -> Poll<AfterStart, usize> {
-        Ok(Async::Ready(Ready(1).into()))
+    fn poll_start<'a>(
+        _: &'a mut RentToOwn<'a, Start>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterStart, usize>> {
+        Poll::Ready(Ok(Ready(1).into()))
     }
 
     fn poll_transition_macro<'a>(
         _: &'a mut RentToOwn<'a, TransitionMacro>,
-    ) -> Poll<AfterTransitionMacro, usize> {
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterTransitionMacro, usize>> {
         transition!(Ready(2))
     }
 }

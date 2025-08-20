@@ -1,11 +1,10 @@
 //! Test that we handle overlapping start/ready/error states properly.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::Poll;
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Poll};
 
 #[derive(StateMachineFuture)]
 pub enum AllOverlapping {
@@ -27,7 +26,10 @@ pub enum NotOverlapping {
 }
 
 impl PollNotOverlapping for NotOverlapping {
-    fn poll_start<'a>(_: &'a mut RentToOwn<'a, Start>) -> Poll<AfterStart, ()> {
+    fn poll_start<'a>(
+        _: &'a mut RentToOwn<'a, Start>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterStart, ()>> {
         unimplemented!()
     }
 }
@@ -44,7 +46,10 @@ pub enum ReadyErrorOverlapping {
 }
 
 impl PollReadyErrorOverlapping for ReadyErrorOverlapping {
-    fn poll_init<'a>(_: &'a mut RentToOwn<'a, Init>) -> Poll<AfterInit, ()> {
+    fn poll_init<'a>(
+        _: &'a mut RentToOwn<'a, Init>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterInit, ()>> {
         unimplemented!()
     }
 }

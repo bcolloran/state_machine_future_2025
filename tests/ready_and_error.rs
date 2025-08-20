@@ -1,11 +1,10 @@
 //! Test that the generated code uses the right ready and error types.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::{Async, Poll};
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Poll};
 
 pub struct MyReady;
 pub struct MyError;
@@ -24,7 +23,10 @@ pub enum Fsm {
 }
 
 impl PollFsm for Fsm {
-    fn poll_start<'a>(_: &'a mut RentToOwn<'a, Start>) -> Poll<AfterStart, MyError> {
-        Ok(Async::Ready(AfterStart::Ready(Ready(MyReady))))
+    fn poll_start<'a>(
+        _: &'a mut RentToOwn<'a, Start>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterStart, MyError>> {
+        Poll::Ready(Ok(AfterStart::Ready(Ready(MyReady))))
     }
 }

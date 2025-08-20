@@ -1,11 +1,10 @@
 //! Test that we handle different kinds of state enums correctly.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::Poll;
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Poll};
 
 #[derive(StateMachineFuture)]
 pub enum Fsm {
@@ -25,17 +24,26 @@ pub enum Fsm {
 }
 
 impl PollFsm for Fsm {
-    fn poll_unit<'a>(unit: &'a mut RentToOwn<'a, Unit>) -> Poll<AfterUnit, ()> {
+    fn poll_unit<'a>(
+        unit: &'a mut RentToOwn<'a, Unit>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterUnit, ()>> {
         match unit.take() {
             self::Unit => unimplemented!(),
         }
     }
-    fn poll_tuple<'a>(tuple: &'a mut RentToOwn<'a, Tuple>) -> Poll<AfterTuple, ()> {
+    fn poll_tuple<'a>(
+        tuple: &'a mut RentToOwn<'a, Tuple>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterTuple, ()>> {
         match tuple.take() {
             Tuple(3, true) | Tuple(_, _) => unimplemented!(),
         }
     }
-    fn poll_struct<'a>(st: &'a mut RentToOwn<'a, Struct>) -> Poll<AfterStruct, ()> {
+    fn poll_struct<'a>(
+        st: &'a mut RentToOwn<'a, Struct>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterStruct, ()>> {
         match st.take() {
             Struct { x: 3, y: true } | Struct { .. } => unimplemented!(),
         }

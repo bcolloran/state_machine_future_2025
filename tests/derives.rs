@@ -1,6 +1,5 @@
 //! Test that we add derive traits properly.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 

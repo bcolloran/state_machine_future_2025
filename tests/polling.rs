@@ -1,11 +1,12 @@
 //! Test that we get the expected poll results.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::{Async, Future, Poll};
+mod util;
+
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Poll};
 
 #[derive(StateMachineFuture)]
 pub enum Machine {
@@ -31,60 +32,70 @@ pub enum Machine {
 }
 
 impl PollMachine for Machine {
-    fn poll_start<'a>(start: &'a mut RentToOwn<'a, Start>) -> Poll<AfterStart, usize> {
-        Ok(Async::Ready(*start.take().0?))
+    fn poll_start<'a>(
+        start: &'a mut RentToOwn<'a, Start>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterStart, usize>> {
+        match start.take().0 {
+            Ok(next) => Poll::Ready(Ok(*next)),
+            Err(e) => Poll::Ready(Err(e)),
+        }
     }
 
-    fn poll_never_ready<'a>(_: &'a mut RentToOwn<'a, NeverReady>) -> Poll<AfterNeverReady, usize> {
-        Ok(Async::NotReady)
+    fn poll_never_ready<'a>(
+        _: &'a mut RentToOwn<'a, NeverReady>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterNeverReady, usize>> {
+        Poll::Pending
     }
 
     fn poll_always_ready<'a>(
         _: &'a mut RentToOwn<'a, AlwaysReady>,
-    ) -> Poll<AfterAlwaysReady, usize> {
-        Ok(Async::Ready(AfterAlwaysReady::Ready(Ready(1))))
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterAlwaysReady, usize>> {
+        Poll::Ready(Ok(AfterAlwaysReady::Ready(Ready(1))))
     }
 }
 
 #[test]
 fn direct_error() {
     let mut machine = Machine::start(Err(42));
-    assert_eq!(machine.poll(), Err(42));
+    assert_eq!(util::poll(&mut machine), Poll::Ready(Err(42)));
 
-    // And its fused: never ready when polling again after we finished.
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
+    // And it's fused: never ready when polling again after we finished.
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
 }
 
 #[test]
 fn indirect_error() {
     let mut machine = Machine::start(Ok(Box::new(AfterStart::Error(Error(42)))));
-    assert_eq!(machine.poll(), Err(42));
+    assert_eq!(util::poll(&mut machine), Poll::Ready(Err(42)));
 
-    // And its fused: never ready when polling again after we finished.
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
+    // And it's fused: never ready when polling again after we finished.
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
 }
 
 #[test]
 fn never_ready() {
     let mut machine = Machine::start(Ok(Box::new(AfterStart::NeverReady(NeverReady))));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
 }
 
 #[test]
 fn always_ready() {
     let mut machine = Machine::start(Ok(Box::new(AfterStart::AlwaysReady(AlwaysReady))));
-    assert_eq!(machine.poll(), Ok(Async::Ready(1)));
+    assert_eq!(util::poll(&mut machine), Poll::Ready(Ok(1)));
 
-    // And its fused: never ready when polling again after we finished.
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
-    assert_eq!(machine.poll(), Ok(Async::NotReady));
+    // And it's fused: never ready when polling again after we finished.
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
+    assert!(util::poll(&mut machine).is_pending());
 }
