@@ -1,11 +1,10 @@
 //! Test that we don't leak private types in public API.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::Poll;
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Poll};
 
 struct PrivateType;
 
@@ -30,7 +29,10 @@ enum Machine {
 }
 
 impl PollMachine for Machine {
-    fn poll_start<'a>(_: &'a mut RentToOwn<'a, Start>) -> Poll<AfterStart, usize> {
+    fn poll_start<'a>(
+        _: &'a mut RentToOwn<'a, Start>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterStart, usize>> {
         unimplemented!()
     }
 }

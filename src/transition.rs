@@ -2,6 +2,6 @@
 #[macro_export]
 macro_rules! transition {
     ( $new_state:expr ) => {
-        return Ok(::futures::Async::Ready($new_state.into()));
+        return ::core::task::Poll::Ready(Ok($new_state.into()));
     };
 }

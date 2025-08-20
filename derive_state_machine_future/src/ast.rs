@@ -1,7 +1,7 @@
 //! AST types for state machines and their states.
 
 use darling;
-use phases;
+use crate::phases;
 use syn;
 
 /// A description of a state machine: its various states, which is the start

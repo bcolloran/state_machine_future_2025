@@ -6,8 +6,8 @@ use proc_macro2::{self, Ident, Span};
 use quote::{ToTokens, TokenStreamExt};
 use syn;
 
-use ast::{State, StateMachine};
-use phases;
+use crate::ast::{State, StateMachine};
+use crate::phases;
 
 fn doc_string<S: AsRef<str>>(s: S) -> proc_macro2::TokenStream {
     let s = s.as_ref();
@@ -244,23 +244,23 @@ impl ToTokens for StateMachine<phases::ReadyForCodegen> {
             Some(_) => match total_states {
                 // If there is only 1 state it is irrefutable that we are in the ready state.
                 1 => quote! {
-                    let context = match self.context.take() {
+                    let context = match this.context.take() {
                         Some(context) => context,
                         None => {
                             let #states_enum::#ready_ident(#ready_ident(#ready_var)) = state;
-                            return Ok(#smf_crate::export::Async::Ready(#ready_var))
+                            return #smf_crate::export::Poll::Ready(Ok(#ready_var));
                         }
                     };
                 },
                 _ => quote! {
-                    let context = match self.context.take() {
+                    let context = match this.context.take() {
                         Some(context) => context,
                         None => {
                             return match state {
-                                #states_enum::#ready_ident(#ready_ident(#ready_var)) => Ok(#smf_crate::export::Async::Ready(#ready_var)),
-                                #states_enum::#error_ident(#error_ident(#error_var)) => Err(#error_var),
-                                _ => Ok(#smf_crate::export::Async::NotReady)
-                            }
+                                #states_enum::#ready_ident(#ready_ident(#ready_var)) => #smf_crate::export::Poll::Ready(Ok(#ready_var)),
+                                #states_enum::#error_ident(#error_ident(#error_var)) => #smf_crate::export::Poll::Ready(Err(#error_var)),
+                                _ => #smf_crate::export::Poll::Pending,
+                            };
                         }
                     };
                 },
@@ -288,18 +288,21 @@ impl ToTokens for StateMachine<phases::ReadyForCodegen> {
 
             impl #impl_generics #smf_crate::export::Future
                 for #state_machine_ident #ty_generics #where_clause {
-                type Item = #future_item;
-                type Error = #future_error;
+                type Output = ::core::result::Result<#future_item, #future_error>;
 
                 #[allow(unreachable_code)]
-                fn poll(&mut self) -> #smf_crate::export::Poll<Self::Item, Self::Error> {
+                fn poll(
+                    self: ::core::pin::Pin<&mut Self>,
+                    cx: &mut #smf_crate::export::Context<'_>,
+                ) -> #smf_crate::export::Poll<Self::Output> {
+                    let this = self.get_mut();
                     loop {
-                        let state = match self.current_state.take() {
+                        let state = match this.current_state.take() {
                             Some(state) => state,
-                            None => return Ok(#smf_crate::export::Async::NotReady),
+                            None => return #smf_crate::export::Poll::Pending,
                         };
                         #extract_context
-                        self.current_state = match state {
+                        this.current_state = match state {
                             #( #poll_match_arms )*
                         };
                     }
@@ -421,7 +424,7 @@ impl State<phases::ReadyForCodegen> {
         if self.ready {
             return quote! {
                 #states_enum::#ident(#ident(#var)) => {
-                    return Ok(#smf_crate::export::Async::Ready(#var));
+                    return #smf_crate::export::Poll::Ready(Ok(#var));
                 }
             };
         }
@@ -432,7 +435,7 @@ impl State<phases::ReadyForCodegen> {
         if self.error {
             return quote! {
                 #states_enum::#error_ident(#error_ident(#error_var)) => {
-                    return Err(#error_var);
+                    return #smf_crate::export::Poll::Ready(Err(#error_var));
                 }
             };
         }
@@ -444,7 +447,7 @@ impl State<phases::ReadyForCodegen> {
         let ready = self.transitions.iter().map(|t| {
             let t_var = to_var(t.to_string());
             quote! {
-                Ok(#smf_crate::export::Async::Ready(#after::#t(#t_var))) => {
+                #smf_crate::export::Poll::Ready(Ok(#after::#t(#t_var))) => {
                     Some(#states_enum::#t(#t_var))
                 }
             }
@@ -457,17 +460,17 @@ impl State<phases::ReadyForCodegen> {
                         #smf_crate::RentToOwn::with(
                             context,
                             move |context| {
-                                <#description_ident #ty_generics as #poll_trait #ty_generics>::#poll_method(state, context)
+                                <#description_ident #ty_generics as #poll_trait #ty_generics>::#poll_method(state, context, cx)
                             }
                         );
 
-                    self.context = context;
+                    this.context = context;
 
                     result
                 }
             },
             None => quote! {
-                <#description_ident #ty_generics as #poll_trait #ty_generics>::#poll_method
+                |state| <#description_ident #ty_generics as #poll_trait #ty_generics>::#poll_method(state, cx)
             },
         };
 
@@ -479,12 +482,12 @@ impl State<phases::ReadyForCodegen> {
                         #poll_method_call
                     );
                 match result {
-                    Err(e) => {
+                    #smf_crate::export::Poll::Ready(Err(e)) => {
                         Some(#states_enum::#error_ident(#error_ident(e)))
                     }
-                    Ok(#smf_crate::export::Async::NotReady) => {
-                        self.current_state = #var.map(#states_enum::#ident);
-                        return Ok(#smf_crate::export::Async::NotReady);
+                    #smf_crate::export::Poll::Pending => {
+                        this.current_state = #var.map(#states_enum::#ident);
+                        return #smf_crate::export::Poll::Pending;
                     }
                     #( #ready )*
                 }
@@ -496,11 +499,11 @@ impl State<phases::ReadyForCodegen> {
         doc_string(format!(
             "Poll the future when it is in the `{}` state and see if it is ready \
              to transition to a new state. If the future is ready to transition \
-             into a new state, return `Ok(Async::Ready({}))`. If the future is \
-             not ready to transition into a new state, return \
-             `Ok(Async::NotReady)`. If an error is encountered, return `Err({})`. \
-             The `RentToOwn` wrapper allows you to choose whether to take \
-             ownership of the current state or not.",
+             into a new state, return `Poll::Ready(Ok({}))`. If the future is \
+             not ready to transition into a new state, return `Poll::Pending`. If an \
+             error is encountered, return `Poll::Ready(Err({}))`. The `RentToOwn` \
+             wrapper allows you to choose whether to take ownership of the current \
+             state or not.",
             self.ident.to_string(),
             self.extra.after,
             {
@@ -537,9 +540,10 @@ impl State<phases::ReadyForCodegen> {
         quote! {
             #poll_method_doc
             fn #poll_method<'smf_poll_state, 'smf_poll_context>(
-                _: &'smf_poll_state mut #smf_crate::RentToOwn<'smf_poll_state, #me #ty_generics>
+                _: &'smf_poll_state mut #smf_crate::RentToOwn<'smf_poll_state, #me #ty_generics>,
+                cx: &mut #smf_crate::export::Context<'_>
                 #context_param
-            ) -> #smf_crate::export::Poll<#after #after_ty_generics, #error_type>;
+            ) -> #smf_crate::export::Poll<::core::result::Result<#after #after_ty_generics, #error_type>>;
         }
     }
 }

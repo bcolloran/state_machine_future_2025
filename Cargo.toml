@@ -11,12 +11,13 @@ name = "state_machine_future"
 readme = "./README.md"
 repository = "https://github.com/fitzgen/state_machine_future"
 version = "0.2.0"
+edition = "2024"
 
 [badges.travis-ci]
 repository = "fitzgen/state_machine_future"
 
 [dependencies]
-futures = "0.1.18"
+futures-lite = "2"
 rent_to_own = "0.1.0"
 
 [dependencies.derive_state_machine_future]

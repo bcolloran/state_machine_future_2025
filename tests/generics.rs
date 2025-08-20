@@ -3,12 +3,11 @@
 //! Here's the deal: we don't figure out which generics are used in which
 //! variants, so it is up to you to add phantom datas as needed.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::{Future, Poll};
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Future, Poll};
 use std::fmt::Debug;
 use std::io;
 use std::marker::PhantomData;
@@ -34,13 +33,13 @@ where
 }
 
 #[derive(StateMachineFuture)]
-pub enum Fsm<'a, 'c, 'd: 'a, T: 'static, E, C, D>
+pub enum Fsm<'a, 'c, 'd: 'a, T: 'static + Unpin, E: Unpin, C, D: Unpin>
 where
-    T: ComplexTrait<'c, C>,
-    E: Debug,
+    T: ComplexTrait<'c, C> + Unpin,
+    E: Debug + Unpin,
     C: 'c,
     'c: 'd,
-    D: AssociatedTypesTrait<Type = E>,
+    D: AssociatedTypesTrait<Type = E> + Unpin,
 {
     /// The start state.
     #[state_machine_future(start)]
@@ -64,25 +63,30 @@ where
 
 impl<'a, 'c, 'd: 'a, T, E, C, D> PollFsm<'a, 'c, 'd, T, E, C, D> for Fsm<'a, 'c, 'd, T, E, C, D>
 where
-    T: ComplexTrait<'c, C> + 'static,
-    E: Debug,
+    T: ComplexTrait<'c, C> + 'static + Unpin,
+    E: Debug + Unpin,
     C: 'c,
     'c: 'd,
-    D: AssociatedTypesTrait<Type = E>,
+    D: AssociatedTypesTrait<Type = E> + Unpin,
 {
     fn poll_start<'b>(
         _: &'b mut RentToOwn<'b, Start<'a, 'c, 'd, T, E, C, D>>,
-    ) -> Poll<AfterStart<'a, 'd, E, D>, E> {
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterStart<'a, 'd, E, D>, E>> {
         unimplemented!()
     }
 
-    fn poll_complex<'b>(_: &'b mut RentToOwn<'b, Complex<'a, 'd>>) -> Poll<AfterComplex<E>, E> {
+    fn poll_complex<'b>(
+        _: &'b mut RentToOwn<'b, Complex<'a, 'd>>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterComplex<E>, E>> {
         unimplemented!()
     }
 
     fn poll_associated_type<'b>(
         _: &'b mut RentToOwn<'b, AssociatedType<E, D>>,
-    ) -> Poll<AfterAssociatedType<E>, E> {
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterAssociatedType<E>, E>> {
         unimplemented!()
     }
 }
@@ -101,7 +105,7 @@ impl AssociatedTypesTrait for String {
 fn check_generic_start() {
     let test = String::from("test");
 
-    let _: Box<Future<Item = i32, Error = io::Error>> = Box::new(Fsm::start(
+    let _: Box<dyn Future<Output = Result<i32, io::Error>>> = Box::new(Fsm::start(
         StartType {
             _data: 0,
             _phan: Default::default(),

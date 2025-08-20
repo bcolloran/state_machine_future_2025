@@ -3,7 +3,6 @@
 
 #![allow(dead_code)]
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
@@ -45,7 +44,7 @@ mod some {
     mod module {
         mod inner {
             #[derive(StateMachineFuture)]
-            pub(in some::module) enum PubInSomeModule {
+            pub(in crate::some::module) enum PubInSomeModule {
                 #[state_machine_future(start)]
                 #[state_machine_future(ready)]
                 #[state_machine_future(error)]

@@ -563,7 +563,7 @@ dual licensed as above, without any additional terms or conditions.
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 
-extern crate futures;
+extern crate futures_lite;
 extern crate rent_to_own;
 
 // Re-export the custom derive. This allows people to depend only on this crate
@@ -580,7 +580,8 @@ mod transition;
 // Helpers used by generated code. Not public API.
 #[doc(hidden)]
 pub mod export {
-    pub use futures::{Async, Future, Poll};
+    pub use core::task::{Context, Poll};
+    pub use futures_lite::Future;
 }
 
 /// Re-export of `rent_to_own::RentToOwn`.
@@ -590,5 +591,5 @@ pub type RentToOwn<'a, T> = rent_to_own::RentToOwn<'a, T>;
 /// generated type that implements `Future`.
 pub trait StateMachineFuture {
     /// The generated `Future` type for this state machine.
-    type Future: futures::Future;
+    type Future: futures_lite::Future;
 }

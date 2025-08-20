@@ -1,10 +1,9 @@
 //! Test that the appropriate start method is generated for the original enum.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::Poll;
+use state_machine_future::export::{Context, Poll};
 use state_machine_future::{RentToOwn, StateMachineFuture};
 
 #[derive(StateMachineFuture)]
@@ -19,7 +18,10 @@ pub enum Fsm {
 }
 
 impl PollFsm for Fsm {
-    fn poll_begin<'a>(_: &'a mut RentToOwn<'a, Begin>) -> Poll<AfterBegin, ()> {
+    fn poll_begin<'a>(
+        _: &'a mut RentToOwn<'a, Begin>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterBegin, ()>> {
         unimplemented!()
     }
 }
@@ -48,7 +50,10 @@ pub enum Fsm2 {
 }
 
 impl PollFsm2 for Fsm2 {
-    fn poll_begin2<'a>(_: &'a mut RentToOwn<'a, Begin2>) -> Poll<AfterBegin2, ()> {
+    fn poll_begin2<'a>(
+        _: &'a mut RentToOwn<'a, Begin2>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterBegin2, ()>> {
         unimplemented!()
     }
 }
@@ -77,7 +82,10 @@ pub enum Fsm3 {
 }
 
 impl PollFsm3 for Fsm3 {
-    fn poll_begin3<'a>(_: &'a mut RentToOwn<'a, Begin3>) -> Poll<AfterBegin3, ()> {
+    fn poll_begin3<'a>(
+        _: &'a mut RentToOwn<'a, Begin3>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterBegin3, ()>> {
         unimplemented!()
     }
 }

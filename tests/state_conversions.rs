@@ -1,11 +1,10 @@
 //! Test that the generated states can be converted to the state enum.
 
-extern crate futures;
 #[macro_use]
 extern crate state_machine_future;
 
-use futures::Poll;
 use state_machine_future::RentToOwn;
+use state_machine_future::export::{Context, Poll};
 
 #[derive(StateMachineFuture)]
 pub enum Fsm {
@@ -25,15 +24,24 @@ pub enum Fsm {
 }
 
 impl PollFsm for Fsm {
-    fn poll_begin<'a>(_: &'a mut RentToOwn<'a, Begin>) -> Poll<AfterBegin, ()> {
+    fn poll_begin<'a>(
+        _: &'a mut RentToOwn<'a, Begin>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterBegin, ()>> {
         unimplemented!()
     }
 
-    fn poll_middle1<'a>(_: &'a mut RentToOwn<'a, Middle1>) -> Poll<AfterMiddle1, ()> {
+    fn poll_middle1<'a>(
+        _: &'a mut RentToOwn<'a, Middle1>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterMiddle1, ()>> {
         unimplemented!()
     }
 
-    fn poll_middle2<'a>(_: &'a mut RentToOwn<'a, Middle2>) -> Poll<AfterMiddle2, ()> {
+    fn poll_middle2<'a>(
+        _: &'a mut RentToOwn<'a, Middle2>,
+        _: &mut Context<'_>,
+    ) -> Poll<Result<AfterMiddle2, ()>> {
         unimplemented!()
     }
 }
