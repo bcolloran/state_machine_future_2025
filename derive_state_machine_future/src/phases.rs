@@ -17,7 +17,7 @@ use petgraph::algo::has_path_connecting;
 use proc_macro2::{Ident, Span};
 use syn;
 
-use ast::StateMachine;
+use crate::ast::StateMachine;
 
 // Create a dummy `FromMeta` implementation for the given type. This is only
 // used because the way that `darling` emits bounds on generic items forces all
@@ -73,7 +73,7 @@ pub trait Pass: Phase {
     type FromPhase: Phase;
 
     /// The function to translate between these phases.
-    fn pass(StateMachine<Self::FromPhase>) -> StateMachine<Self>;
+    fn pass(machine: StateMachine<Self::FromPhase>) -> StateMachine<Self>;
 }
 
 /// The state machine AST has been parsed from the custom derive input.
@@ -156,7 +156,7 @@ impl Pass for StartReadyError {
                     if !state.ready && !state.error {
                         assert!(
                             !state.transitions.is_empty(),
-                            "Non-{ready,error} states must have transitions"
+                            "Non-{{ready,error}} states must have transitions"
                         );
                     }
 

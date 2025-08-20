@@ -8,6 +8,7 @@ license = "Apache-2.0/MIT"
 name = "derive_state_machine_future"
 repository = "https://github.com/fitzgen/state_machine_future"
 version = "0.2.0"
+edition = "2024"
 workspace = ".."
 
 [badges.travis-ci]
